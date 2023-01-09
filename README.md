@@ -3,6 +3,5 @@ This project is intended to learn dagster. It pulls data from the [College Footb
 
 ## Setup:
 There are two environmental variables needed for this project:
-1. An API token from College Football API that you can sign up for [here](https://collegefootballdata.com/key)
-   <br> * test
-3. Google credentials file (JSON) that I point my "GOOGLE_APPLICATION_CREDENTIALS" environment variable to the location of
+1. An API token from College Football API that you can sign up for [here](https://collegefootballdata.com/key) (I assigned this token to environment variable "CFB_TOKEN")
+2. Google credentials file (JSON) that I point my "GOOGLE_APPLICATION_CREDENTIALS" environment variable to the location of
