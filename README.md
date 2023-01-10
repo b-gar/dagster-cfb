@@ -6,4 +6,4 @@ There are two environmental variables needed for this project:
 1. An API token from College Football API that you can sign up for [here](https://collegefootballdata.com/key)
    * I assigned this token to the environment variable `CFB_TOKEN`. **IMPORTANT:** bearer needs to be prepended to the token. (Ex. CFB_TOKEN=bearer thisismytoken)
    
-2. Google credentials file (JSON) that I point my `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the location of
+2. Google credentials file (JSON) that I point my `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the location of. (Ex. GOOGLE_APPLICATION_CREDENTIALS=C:\Users\Owner\test\bigquerytest.json
