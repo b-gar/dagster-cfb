@@ -68,7 +68,8 @@ def load_play_by_play_data(context, clean_play_by_play_data):
             bigquery.SchemaField("ppa", bigquery.enums.SqlTypeNames.FLOAT64),
             bigquery.SchemaField("wallclock", bigquery.enums.SqlTypeNames.DATETIME),
             bigquery.SchemaField("week", bigquery.enums.SqlTypeNames.INT64)
-        ]
+        ],
+        write_disposition="WRITE_TRUNCATE"
     )
     job = client.load_table_from_dataframe(clean_play_by_play_data, table_id, job_config=job_config)
     context.log.debug(job.result())
