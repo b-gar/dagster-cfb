@@ -25,9 +25,11 @@ def get_play_by_play_data(context):
     return df
 
 @asset
-def clean_play_by_play_data(get_play_by_play_data):
+def clean_play_by_play_data(context, get_play_by_play_data):
     df = get_play_by_play_data.reset_index(drop=True)
-    df["game_id"] = df["game_id"].astype(str)
+    context.log.debug(df.game_id[0])
+    df["game_id"] = df["game_id"].astype(int).astype(str)
+    context.log.debug(df.game_id[0])
     df["clock"] = df["clock"].apply(lambda x: f"{x['minutes']}:{x['seconds']}")
     df["ppa"] = df["ppa"].astype(float)
     df["wallclock"] = pd.to_datetime(df["wallclock"])
