@@ -3,28 +3,60 @@ import json
 import requests
 import pandas as pd
 from google.cloud import bigquery
+import time
 
 @asset(required_resource_keys={"cfb_token"})
-def get_play_by_play_data(context):
+def get_play_by_play_regular_data(context):
     url = "https://api.collegefootballdata.com/plays"
     headers = {"Authorization": context.resources.cfb_token}
     df = pd.DataFrame()
-    for week in range(1, 17):
-        params = {"year": 2022, "seasonType": 'regular', 'week': week}
-        response = requests.request("GET", url, headers=headers, params=params)
-        context.log.debug(response.status_code)
-        response.raise_for_status()
-        response_text = json.loads(response.text)
-        df2 = pd.DataFrame(response_text)
-        if df2.shape[0] == 0:
-            next
-        df2['week'] = week
-        df = pd.concat([df, df2])
+    for year in range(2018, 2023):
+        for week in range(1, 17):
+            while True:
+                params = {"year": year, "seasonType": "regular", "week": week}
+                response = requests.request("GET", url, headers=headers, params=params)
+                if response.status_code != 200:
+                    context.log.debug(response.status_code)
+                    time.sleep(60)
+                else:
+                    response_text = json.loads(response.text)
+                    df2 = pd.DataFrame(response_text)
+                    if df2.shape[0] == 0:
+                        break
+                    df2["year"] = year
+                    df2["week"] = week
+                    df2["season"] = "regular"
+                    df = pd.concat([df, df2])
+                    time.sleep(10)
+                    break
+    return df
+
+@asset(required_resource_keys={"cfb_token"})
+def get_play_by_play_postseason_data(context):
+    url = "https://api.collegefootballdata.com/plays"
+    headers = {"Authorization": context.resources.cfb_token}
+    df = pd.DataFrame()
+    for year in range(2018, 2023):
+        while True:
+            params = {"year": year, "seasonType": "postseason", "week": 1}
+            response = requests.request("GET", url, headers=headers, params=params)
+            if response.status_code != 200:
+                context.log.debug(response.status_code)
+                time.sleep(60)
+            else:
+                response_text = json.loads(response.text)
+                df2 = pd.DataFrame(response_text)
+                df2["year"] = year
+                df2["week"] = 1
+                df2["season"] = "postseason"
+                df = pd.concat([df, df2])
+                time.sleep(10)
+                break
     return df
 
 @asset
-def clean_play_by_play_data(get_play_by_play_data):
-    df = get_play_by_play_data.reset_index(drop=True)
+def clean_play_by_play_data(get_play_by_play_regular_data, get_play_by_play_postseason_data):
+    df = pd.concat([get_play_by_play_regular_data, get_play_by_play_postseason_data]).reset_index(drop=True)
     df["game_id"] = df["game_id"].astype(int).astype(str)
     df["clock_minutes"] = df["clock"].apply(lambda x: f"{x['minutes']}").astype(int)
     df["clock_seconds"] = df["clock"].apply(lambda x: f"{x['seconds']}").astype(int)
@@ -32,6 +64,7 @@ def clean_play_by_play_data(get_play_by_play_data):
     df["ppa"] = df["ppa"].astype(float)
     df["wallclock"] = pd.to_datetime(df["wallclock"])
     col_order = [
+        "year",
         "week",
         "game_id",
         "drive_id",
@@ -65,13 +98,13 @@ def clean_play_by_play_data(get_play_by_play_data):
     df = df.reindex(columns=col_order)
     return df
 
-
 @asset(required_resource_keys={"bigquery_api_token"})
 def load_play_by_play_data(context, clean_play_by_play_data):
     client = bigquery.Client()
     table_id = "bigquerytest-373818.football.playbyplay"
     job_config = bigquery.LoadJobConfig(
         schema=[
+            bigquery.SchemaField("year", bigquery.enums.SqlTypeNames.INT64),
             bigquery.SchemaField("week", bigquery.enums.SqlTypeNames.INT64),
             bigquery.SchemaField("game_id", bigquery.enums.SqlTypeNames.STRING),
             bigquery.SchemaField("drive_id", bigquery.enums.SqlTypeNames.STRING),
