@@ -25,10 +25,11 @@ def get_play_by_play_regular_data(context):
                         break
                     df2["year"] = year
                     df2["week"] = week
-                    df2["season"] = "regular"
+                    df2["season_type"] = "regular"
                     df = pd.concat([df, df2])
                     time.sleep(10)
                     break
+        context.log.debug(f"Regular Season: {year}")
     return df
 
 @asset(required_resource_keys={"cfb_token"})
@@ -48,10 +49,11 @@ def get_play_by_play_postseason_data(context):
                 df2 = pd.DataFrame(response_text)
                 df2["year"] = year
                 df2["week"] = 1
-                df2["season"] = "postseason"
+                df2["season_type"] = "postseason"
                 df = pd.concat([df, df2])
                 time.sleep(10)
                 break
+        context.log.debug(f"Postseason: {year}")
     return df
 
 @asset
@@ -65,6 +67,7 @@ def clean_play_by_play_data(get_play_by_play_regular_data, get_play_by_play_post
     df["wallclock"] = pd.to_datetime(df["wallclock"])
     col_order = [
         "year",
+        "season_type",
         "week",
         "game_id",
         "drive_id",
@@ -105,6 +108,7 @@ def load_play_by_play_data(context, clean_play_by_play_data):
     job_config = bigquery.LoadJobConfig(
         schema=[
             bigquery.SchemaField("year", bigquery.enums.SqlTypeNames.INT64),
+            bigquery.SchemaField("season_type", bigquery.enums.SqlTypeNames.STRING),
             bigquery.SchemaField("week", bigquery.enums.SqlTypeNames.INT64),
             bigquery.SchemaField("game_id", bigquery.enums.SqlTypeNames.STRING),
             bigquery.SchemaField("drive_id", bigquery.enums.SqlTypeNames.STRING),
