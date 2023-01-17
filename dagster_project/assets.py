@@ -5,7 +5,7 @@ import pandas as pd
 from google.cloud import bigquery
 import time
 
-@asset(required_resource_keys={"cfb_token"})
+@asset(required_resource_keys={"cfb_token"}, compute_kind="Extract")
 def get_play_by_play_regular_data(context):
     url = "https://api.collegefootballdata.com/plays"
     headers = {"Authorization": context.resources.cfb_token}
@@ -30,9 +30,10 @@ def get_play_by_play_regular_data(context):
                     time.sleep(10)
                     break
         context.log.debug(f"Regular Season: {year}")
+    context.add_output_metadata({"Rows": df.shape[0], "Columns": df.shape[1]})
     return df
 
-@asset(required_resource_keys={"cfb_token"})
+@asset(required_resource_keys={"cfb_token"}, compute_kind="Extract")
 def get_play_by_play_postseason_data(context):
     url = "https://api.collegefootballdata.com/plays"
     headers = {"Authorization": context.resources.cfb_token}
@@ -54,10 +55,11 @@ def get_play_by_play_postseason_data(context):
                 time.sleep(10)
                 break
         context.log.debug(f"Postseason: {year}")
+    context.add_output_metadata({"Rows": df.shape[0], "Columns": df.shape[1]})
     return df
 
-@asset
-def clean_play_by_play_data(get_play_by_play_regular_data, get_play_by_play_postseason_data):
+@asset(compute_kind="Transform")
+def clean_play_by_play_data(context, get_play_by_play_regular_data, get_play_by_play_postseason_data):
     df = pd.concat([get_play_by_play_regular_data, get_play_by_play_postseason_data]).reset_index(drop=True)
     df["game_id"] = df["game_id"].astype(int).astype(str)
     df["clock_minutes"] = df["clock"].apply(lambda x: f"{x['minutes']}").astype(int)
@@ -99,9 +101,10 @@ def clean_play_by_play_data(get_play_by_play_regular_data, get_play_by_play_post
         "ppa"
     ]
     df = df.reindex(columns=col_order)
+    context.add_output_metadata({"Rows": df.shape[0], "Columns": df.shape[1]})
     return df
 
-@asset(required_resource_keys={"bigquery_api_token"})
+@asset(required_resource_keys={"bigquery_api_token"}, compute_kind="Load")
 def load_play_by_play_data(context, clean_play_by_play_data):
     client = bigquery.Client()
     table_id = "bigquerytest-373818.football.playbyplay"
