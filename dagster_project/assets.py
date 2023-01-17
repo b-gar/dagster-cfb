@@ -6,7 +6,7 @@ from google.cloud import bigquery
 import time
 
 @asset(required_resource_keys={"cfb_token"}, compute_kind="Extract")
-def get_play_by_play_regular_data(context):
+def get_play_by_play_regular_data(context) -> pd.DataFrame:
     url = "https://api.collegefootballdata.com/plays"
     headers = {"Authorization": context.resources.cfb_token}
     df = pd.DataFrame()
@@ -59,7 +59,7 @@ def get_play_by_play_postseason_data(context):
     return df
 
 @asset(compute_kind="Transform")
-def clean_play_by_play_data(context, get_play_by_play_regular_data, get_play_by_play_postseason_data):
+def clean_play_by_play_data(context, get_play_by_play_regular_data, get_play_by_play_postseason_data) -> pd.DataFrame:
     df = pd.concat([get_play_by_play_regular_data, get_play_by_play_postseason_data]).reset_index(drop=True)
     df["game_id"] = df["game_id"].astype(int).astype(str)
     df["clock_minutes"] = df["clock"].apply(lambda x: f"{x['minutes']}").astype(int)
@@ -105,7 +105,7 @@ def clean_play_by_play_data(context, get_play_by_play_regular_data, get_play_by_
     return df
 
 @asset(required_resource_keys={"bigquery_api_token"}, compute_kind="Load")
-def load_play_by_play_data(context, clean_play_by_play_data):
+def load_play_by_play_data(context, clean_play_by_play_data) -> None:
     client = bigquery.Client()
     table_id = "bigquerytest-373818.football.playbyplay"
     job_config = bigquery.LoadJobConfig(
@@ -146,3 +146,35 @@ def load_play_by_play_data(context, clean_play_by_play_data):
     )
     job = client.load_table_from_dataframe(clean_play_by_play_data, table_id, job_config=job_config)
     context.log.debug(job.result())
+
+@asset(required_resource_keys={"bigquery_api_token"}, compute_kind="Results")
+def show_top_10_rushers(context) -> None:
+    client = bigquery.Client()
+    table_id = "bigquerytest-373818.football.playbyplay"
+    query = f"""
+        SELECT offense AS team, AVG(yards_gained) AS average_rush_yards
+        FROM {table_id}
+        WHERE play_type ="Rush"
+        GROUP BY offense, play_type
+        ORDER BY average_rush_yards DESC
+        LIMIT 10;
+    """
+    query_job = client.query(query)
+    df = query_job.result().to_dataframe()
+    context.add_output_metadata(dict(zip(df["team"], df["average_rush_yards"])))
+
+@asset(required_resource_keys={"bigquery_api_token"}, compute_kind="Results")
+def show_top_10_passers(context) -> None:
+    client = bigquery.Client()
+    table_id = "bigquerytest-373818.football.playbyplay"
+    query = f"""
+        SELECT offense AS team, AVG(yards_gained) AS average_pass_yards
+        FROM {table_id}
+        WHERE play_type ="Pass Reception"
+        GROUP BY offense, play_type
+        ORDER BY average_pass_yards DESC
+        LIMIT 10;
+    """
+    query_job = client.query(query)
+    df = query_job.result().to_dataframe()
+    context.add_output_metadata(dict(zip(df["team"], df["average_pass_yards"])))

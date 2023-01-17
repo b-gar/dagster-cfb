@@ -7,7 +7,8 @@ setup(
         "dagster",
         "pandas",
         "requests",
-        "google-cloud-bigquery"
+        "google-cloud-bigquery",
+        "db-dtypes"
     ],
     extras_require={"dev": ["dagit", "pytest"]},
 )
